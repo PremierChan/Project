@@ -21,25 +21,12 @@ typedef struct {
     char addr[50];
 } MSG;
 
-//一些全局变量
-int socketfd;                   //定义网络套接字
-struct sockaddr_in serveraddr;  //定义网络信息结构体
-MSG msg;                        //定义信息结构体
-int n;                          //变量定义
-//一些函数的定义
-void socket_init();
-void do_register(int socketfd, MSG* msg);
-int do_login(int socketfd, MSG* msg);
-void do_forget_password(int socketfd, MSG* msg);
-void do_add_user(int socketfd, MSG* msg);
-void do_delete_user(int socketfd, MSG* msg);
-void do_update_general_user(int socketfd, MSG* msg);
-void do_update_root_user(int socketfd, MSG* msg);
+int serverport;
+int socketfd;
+struct sockaddr_in serveraddr;
+MSG msg;
+int n;
 
-void do_search_general_user(int socketfd, MSG* msg);
-void do_search_root_user(int socketfd, MSG* msg);
-
-void do_root_user(int socketfd, MSG* msg);
-void do_general_user(int socketfd, MSG* msg);
+void socket_init(char const* argv[]);
 
 #endif
