@@ -17,7 +17,7 @@ typedef struct {
     int type;       // 0位root用户，1为普通用户
     char sex[10];
     int age;
-    char phone[11];
+    char phone[12];
     char addr[50];
 } MSG;
 
@@ -28,5 +28,19 @@ MSG msg;
 int n;
 
 void socket_init(char const* argv[]);
+void initUi(void);
+void do_register(int socketfd, MSG* msg);
+int do_login(int socketfd, MSG* msg);
+void do_forget_password(int socketfd, MSG* msg);
+void do_add_user(int socketfd, MSG* msg);
+void do_delete_user(int socketfd, MSG* msg);
+void do_update_general_user(int socketfd, MSG* msg);
+void do_update_root_user(int socketfd, MSG* msg);
+
+void do_search_general_user(int socketfd, MSG* msg);
+void do_search_root_user(int socketfd, MSG* msg);
+
+void do_root_user(int socketfd, MSG* msg);
+void do_general_user(int socketfd, MSG* msg);
 
 #endif

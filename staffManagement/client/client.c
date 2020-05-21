@@ -7,8 +7,11 @@ int main(int argc, char const* argv[]) {
         exit(0);
     }
 
-    socket_init(argv);
+    // socket_init(argv);
 
-    
+    while (1) {
+        initUi();
+    }
+
     return 0;
 }
