@@ -28,7 +28,8 @@ void socket_init(char const* argv[]) {
         exit(0);
     }
 
-    puts("客户端准备就绪！");
+    puts("客户端准备就绪！按下回车继续");
+    getchar();
 }
 
 void initUi(void) {
@@ -141,6 +142,7 @@ void do_register(int socketfd, MSG* msg) {
 };
 
 int do_login(int socketfd, MSG* msg) {
+#if 0
     strcpy(msg->name, "CQL");
     strcpy(msg->passwd, "123");
     msg->id = 1;
@@ -150,6 +152,7 @@ int do_login(int socketfd, MSG* msg) {
     strcpy(msg->sex, "boy");
     strcpy(msg->phone, "15774512737");
     strcpy(msg->addr, "asfafs");
+#endif
 
     system("clear");
     printf("*****************************************************\n");
