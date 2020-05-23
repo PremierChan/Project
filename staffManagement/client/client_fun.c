@@ -131,9 +131,10 @@ void do_register(int socketfd, MSG* msg) {
     printf("性  别：%s\n", msg->sex);
     printf("手机号：%s\n", msg->phone);
     printf("地  址：%s\n", msg->addr);
-    printf("密  码：******\n");
+
     puts("");
     printf("[该ID号码将作为登陆账号使用]\nID号为：%d\n", msg->id);
+    printf("密  码：******\n");
     printf("\n请按下回车来返回上级页面：");
 
     getchar();
@@ -195,6 +196,7 @@ int do_login(int socketfd, MSG* msg) {
         printf("登陆失败！将返会主页！\n输入回车确认！");
         getchar();
         system("clear");
+        return 0;
     }
 
     if (msg->type == 1) {
@@ -206,7 +208,15 @@ int do_login(int socketfd, MSG* msg) {
     }
 };
 void do_forget_password(int socketfd, MSG* msg) {
-    puts("do_forget");
+    system("clear");
+    printf("*****************************************************\n");
+    printf("*                                                   *\n");
+    printf("*                    忘记密码                       *\n");
+    printf("*                                                   *\n");
+    printf("*****************************************************\n");
+    printf("请输入ID:");
+    scanf("%d", msg->id);
+    send(socketfd, msg, sizeof(MSG), 0);
 };
 
 void do_root_user(int socketfd, MSG* msg) {
@@ -219,10 +229,12 @@ void do_root_user(int socketfd, MSG* msg) {
         printf("*                                                   *\n");
         printf("*****************************************************\n");
         printf("你好！%s\n", msg->name);
+        /*
         printf("年  龄：%d\n", msg->age);
         printf("性  别：%s\n", msg->sex);
         printf("手机号：%s\n", msg->phone);
         printf("地  址：%s\n", msg->addr);
+        */
         printf("\n****************************************\n");
         printf("* 1: 添加用户  2: 删除用户  3:修改信息 *\n");
         printf("* 4: 查询信息  5: 退出                 *\n");
@@ -311,6 +323,8 @@ void do_general_user(int socketfd, MSG* msg) {
 }
 
 void do_add_user(int socketfd, MSG* msg) {
+    puts("按下回车跳转到注册页");
+    getchar();
     do_register(socketfd, msg);
     return;
 }
@@ -323,7 +337,7 @@ void do_update_root_user(int socketfd, MSG* msg) {
     getchar();
 }
 void do_search_root_user(int socketfd, MSG* msg) {
-    printf("root搜索\n");
+    printf("root查询\n");
     getchar();
 }
 
