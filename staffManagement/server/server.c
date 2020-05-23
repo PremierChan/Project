@@ -1,7 +1,7 @@
 #include "server.h"
 
 int main(int argc, const char* argv[]) {
-    pthread_t tid;  //线程id
+    pthread_t tid;
 
     if (argc < 3) {
         fprintf(stderr, "使用方法 :%s  <valid>  <valid>\n", argv[0]);
@@ -15,8 +15,7 @@ int main(int argc, const char* argv[]) {
 
         if ((clientfd = accept(listenfd, (struct sockaddr*)&clientaddr,
                                &client_len)) > 0) {
-            if (!pthread_create(&tid, NULL, do_client(&clientfd),
-                                (void*)&clientfd))
+            if (pthread_create(&tid, NULL, do_client, (void*)&clientfd))
                 puts("线程创建失败！");
         }
     }

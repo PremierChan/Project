@@ -34,13 +34,11 @@ int create_database(void) {
     int nRow, nColumn;
     char* errmsg;
     char sql[1024];
-    sqlite3* db;
     int number1 = 0, number2 = 0;
 
-    if (!sqlite3_open(DATABASE, &db))
+    sqlite3_open(DATABASE, &db);
 
-        sprintf(
-            sql,
+    sprintf(sql,
             "create table user_login (ID int,passwd char,type int,tips char);");
     number1 = !sqlite3_exec(db, sql, NULL, NULL, &errmsg);
 
@@ -51,9 +49,18 @@ int create_database(void) {
     number2 = !sqlite3_exec(db, sql, NULL, NULL, &errmsg);
 
     if (number1 && number2) {
+        sprintf(sql,
+                "INSERT INTO user_info "
+                "VALUES(1000,\"PremierChan\",\"男\",99,\"110\",\"NULL\",0,"
+                "\"A\");");
+        sqlite3_exec(db, sql, NULL, NULL, &errmsg);
+
+        sprintf(sql,
+                " INSERT INTO user_login VALUES (1000,\"asdfghjkl\",0,\"a\");");
+        sqlite3_exec(db, sql, NULL, NULL, &errmsg);
+
         puts("数据库表格初始化成功！");
     }
-
     return 1;
 }
 
@@ -91,16 +98,57 @@ void* do_client(void* arg) {
     return NULL;
 }
 
-/**
- *Name 		  : 	do_register
- *Description : 	注册用户信息，将用户登录信息添加到user_login表中，将
-                                        用户信息添加到user_info表中
- *Input 	  :     用户信息（MSG）
- *Output 	  :
- */
 void do_register(MSG* userMsg, int clientfd) {
-    printf("do_reg\n");
+    char registerInfoSql[1024];
+
+    sprintf(registerInfoSql,
+            "select * from user_login where id order by id desc limit 0,1;");
+    sqlite3_exec(db, registerInfoSql, sqliteCallback, NULL, NULL);
+
+    printf("用户注册\n");
+
+    recv(clientfd, userMsg, sizeof(*userMsg), 0);
+    userMsg->id = comMsg.id + 1;
+    userMsg->type = 1;
+    strcpy(userMsg->tips, "A");
+
+    sprintf(registerInfoSql,  //登录信息录入
+            "insert into user_login values (%d,\"%s\",%d,\"%s\");", userMsg->id,
+            userMsg->passwd, userMsg->type, userMsg->tips);
+    sqlite3_exec(db, registerInfoSql, NULL, NULL, NULL);
+
+    sprintf(registerInfoSql,  //个人信息录入
+            "insert into user_info values "
+            "(%d,\"%s\",\"%s\",%d,\"%s\",\"%s\",%d,\"%s\");",
+            userMsg->id, userMsg->name, userMsg->sex, userMsg->age,
+            userMsg->phone, userMsg->addr, userMsg->type, userMsg->tips);
+    sqlite3_exec(db, registerInfoSql, NULL, NULL, NULL);
+
+    send(clientfd, userMsg, sizeof(*userMsg), 0);
+
+    printf("注册完成\n");
+    memset(&comMsg, 0, sizeof(comMsg));
+
     return;
+}
+
+int sqliteCallback(void* para, int f_number, char* f_value[], char* f_name[]) {
+    int i = 0;
+    if (f_number == 4) {
+        comMsg.id = atoi(f_value[i++]);
+        strcpy(comMsg.passwd, f_value[i++]);
+        comMsg.type = atoi(f_value[i++]);
+        strcpy(comMsg.tips, f_value[i]);
+    } else {
+        comMsg.id = atoi(f_value[i++]);
+        strcpy(comMsg.name, f_value[i++]);
+        stpcpy(comMsg.sex, f_value[i++]);
+        comMsg.age = atoi(f_value[i++]);
+        strcpy(comMsg.phone, f_value[i++]);
+        strcpy(comMsg.addr, f_value[i++]);
+        comMsg.type = atoi(f_value[i++]);
+        strcpy(comMsg.tips, f_value[i]);
+    }
 }
 
 /**
@@ -110,66 +158,56 @@ void do_register(MSG* userMsg, int clientfd) {
  *Output 	  :
  */
 void do_findPassword(MSG* userMsg, int clientfd) {
-    puts("do_fnd");
+    recv(clientfd, userMsg, sizeof(*userMsg), 0);
+    printf("%d\n", userMsg->id);
+    getchar();
     return;
 }
 
-/**
- *Name 		  : 	do_login
- *Description : 	判断用户输入的帐号与密码是否正确
- *Input 	  : 	用户id,密码
- *Output 	  :
- */
 void do_login(MSG* userMsg, int clientfd) {
-    puts("do_login");
+    char registerInfoSql[1024];
+
+    recv(clientfd, userMsg, sizeof(*userMsg), 0);
+
+    sprintf(registerInfoSql,
+            "select * from user_login where id order by id desc limit 0,1;");
+    sqlite3_exec(db, registerInfoSql, sqliteCallback, NULL, NULL);
+
+    if (userMsg->id > comMsg.id)
+        goto ERROR;
+
+    sprintf(registerInfoSql, "select * from user_login where id=%d;",
+            userMsg->id);
+    sqlite3_exec(db, registerInfoSql, sqliteCallback, NULL, NULL);
+
+    if (strcmp(userMsg->passwd, comMsg.passwd))
+        goto ERROR;
+
+    sprintf(registerInfoSql, "select * from user_info where id=%d;",
+            userMsg->id);
+    sqlite3_exec(db, registerInfoSql, sqliteCallback, NULL, NULL);
+
+    strcpy(userMsg->tips, "A");
+    send(clientfd, &comMsg, sizeof(comMsg), 0);
+
+    memset(&comMsg, 0, sizeof(comMsg));
+
+    do_login_success(userMsg, clientfd);
+
+    return;
+
+ERROR:
+    strcpy(userMsg->tips, "#");
+    send(clientfd, userMsg, sizeof(*userMsg), 0);
+    memset(&comMsg, 0, sizeof(comMsg));
     return;
 }
 
 void do_quit(MSG* userMsg, int clientfd) {
     free(userMsg);
     close(clientfd);
-    printf("user quit\n");
+    printf("用户退出\n");
 
-    return;
-}
-
-#if 0
-
-void do_add(MSG* userMsg, int clientfd) {
-    do_register(userMsg, clientfd);
-}
-
-/**
- *Name 		  : 	do_delete
- *Description :     根据用户的id删除用户记录
- *Input 	  : 	用户id(msg->id)
- *Output 	  :
- */
-void do_delete(MSG* userMsg, int clientfd) {
-    return;
-}
-
-/**
- *Name 		  : 	do_select
- *Description : 	根据用户id查询某个用户的信息
- *Input 	  : 	用户id
- *Output 	  :
- */
-void do_select(MSG* userMsg, int clientfd) {
-    return;
-}
-
-/**
- *Name 		  : 	do_updata
- *Description : 	管理员根据用户id修改用户信息
- *Input 	  : 	用户id
- *Output 	  :
- */
-void do_updata(MSG* userMsg, int clientfd) {
-    return;
-}
-
-void do_passwd(MSG* userMsg, int clientfd) {
     return;
 }
 
@@ -206,4 +244,45 @@ void do_login_success(MSG* userMsg, int clientfd) {
     return;
 }
 
-#endif
+void do_add(MSG* userMsg, int clientfd) {
+    do_register(userMsg, clientfd);
+}
+
+/**
+ *Name 		  : 	do_delete
+ *Description :     根据用户的id删除用户记录
+ *Input 	  : 	用户id(msg->id)
+ *Output 	  :
+ */
+void do_delete(MSG* userMsg, int clientfd) {
+    return;
+}
+
+/**
+ *Name 		  : 	do_select
+ *Description : 	根据用户id查询某个用户的信息
+ *Input 	  : 	用户id
+ *Output 	  :
+ */
+void do_select(MSG* userMsg, int clientfd) {
+    puts("do_sele");
+    return;
+}
+
+/**
+ *Name 		  : 	do_updata
+ *Description : 	管理员根据用户id修改用户信息
+ *Input 	  : 	用户id
+ *Output 	  :
+ */
+void do_updata(MSG* userMsg, int clientfd) {
+    puts("do_up");
+    return;
+}
+
+void do_passwd(MSG* userMsg, int clientfd) {
+    recv(clientfd, userMsg, sizeof(*userMsg), 0);
+    printf("%d\n", userMsg->id);
+    getchar();
+    return;
+}
