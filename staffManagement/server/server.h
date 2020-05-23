@@ -38,6 +38,7 @@ sqlite3* db;
 socklen_t client_len;
 int listenfd;
 MSG comMsg;
+int userNumber;
 
 int sqliteCallback(void* para, int f_number, char** f_value, char** f_name);
 void socket_init(const char* argv[]);
@@ -54,5 +55,7 @@ void do_delete(MSG* userMsg, int clientfd);
 void do_select(MSG* userMsg, int clientfd);
 void do_updata(MSG* userMsg, int clientfd);
 void do_passwd(MSG* userMsg, int clientfd);
+
+void backInfo(MSG* userMsg, int clientfd);
 
 #endif

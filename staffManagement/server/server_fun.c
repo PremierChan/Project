@@ -52,11 +52,12 @@ int create_database(void) {
         sprintf(sql,
                 "INSERT INTO user_info "
                 "VALUES(1000,\"PremierChan\",\"男\",99,\"110\",\"NULL\",0,"
-                "\"A\");");
+                "\"CAB\");");
         sqlite3_exec(db, sql, NULL, NULL, &errmsg);
 
-        sprintf(sql,
-                " INSERT INTO user_login VALUES (1000,\"asdfghjkl\",0,\"a\");");
+        sprintf(
+            sql,
+            " INSERT INTO user_login VALUES (1000,\"asdfghjkl\",0,\"CAB\");");
         sqlite3_exec(db, sql, NULL, NULL, &errmsg);
 
         puts("数据库表格初始化成功！");
@@ -74,23 +75,28 @@ void* do_client(void* arg) {
             fprintf(stderr, "%s\n", strerror(errno));
         }
 
-        printf("%c\n", userMsg->tips[0]);
+        printf("\n[%c]\n", userMsg->tips[0]);
         switch (userMsg->tips[0]) {
             case 'R':
+                memset(userMsg, 0, sizeof(*userMsg));
                 do_register(userMsg, clientfd);
                 break;
             case 'F':
+                memset(userMsg, 0, sizeof(*userMsg));
                 do_findPassword(userMsg, clientfd);
                 break;
             case 'L':
+                memset(userMsg, 0, sizeof(*userMsg));
                 do_login(userMsg, clientfd);
                 break;
             case 'Q':
+                memset(userMsg, 0, sizeof(*userMsg));
                 do_quit(userMsg, clientfd);
                 return NULL;
                 break;
             default:
-                printf("服务器错误！\n");
+                printf("服务器错误\n");
+                return NULL;
                 break;
         }
     }
@@ -100,17 +106,43 @@ void* do_client(void* arg) {
 
 void do_register(MSG* userMsg, int clientfd) {
     char registerInfoSql[1024];
+    int users;
+    int flag;
+
+    printf("用户注册\n");
 
     sprintf(registerInfoSql,
             "select * from user_login where id order by id desc limit 0,1;");
     sqlite3_exec(db, registerInfoSql, sqliteCallback, NULL, NULL);
+    users = comMsg.id;
 
-    printf("用户注册\n");
+    strcpy(userMsg->name, "");
+    strcpy(userMsg->phone, "");
+    strcpy(userMsg->addr, "");
+    strcpy(userMsg->sex, "");
 
     recv(clientfd, userMsg, sizeof(*userMsg), 0);
-    userMsg->id = comMsg.id + 1;
+
+    if ((!strlen(userMsg->name)) && (!strlen(userMsg->phone)) &&
+        (!strlen(userMsg->sex)) && (!strlen(userMsg->addr))) {
+        printf("\n注册失败，客户端退出\n");
+        return;
+    }
+
     userMsg->type = 1;
-    strcpy(userMsg->tips, "A");
+
+    for (int i = 1000; i <= users; i++) {
+        sprintf(registerInfoSql, "select * from user_login where id = %d;", i);
+        flag = sqlite3_exec(db, registerInfoSql, sqliteCallback, NULL, NULL);
+        if (!flag) {
+            userMsg->id = i;
+            break;
+        }
+        if (i == users) {
+            userMsg->id = comMsg.id + 1;
+            break;
+        }
+    }
 
     sprintf(registerInfoSql,  //登录信息录入
             "insert into user_login values (%d,\"%s\",%d,\"%s\");", userMsg->id,
@@ -127,7 +159,8 @@ void do_register(MSG* userMsg, int clientfd) {
     send(clientfd, userMsg, sizeof(*userMsg), 0);
 
     printf("注册完成\n");
-    memset(&comMsg, 0, sizeof(comMsg));
+
+    backInfo(userMsg, clientfd);
 
     return;
 }
@@ -151,21 +184,40 @@ int sqliteCallback(void* para, int f_number, char* f_value[], char* f_name[]) {
     }
 }
 
-/**
- *Name 		  : 	do_findPassword
- *Description : 	在用户忘记密码时提供密保找回密码功能
- *Input 	  : 	用户id,密保问题
- *Output 	  :
- */
 void do_findPassword(MSG* userMsg, int clientfd) {
+    char registerInfoSql[1024];
     recv(clientfd, userMsg, sizeof(*userMsg), 0);
-    printf("%d\n", userMsg->id);
-    getchar();
+
+    printf("用户 %d 正在找回密码\n", userMsg->id);
+
+    sprintf(registerInfoSql, "select * from user_info where id =%d;",
+            userMsg->id);
+    sqlite3_exec(db, registerInfoSql, sqliteCallback, NULL, NULL);
+
+    if (strcmp(comMsg.name, userMsg->name) ||
+        strcmp(comMsg.phone, userMsg->phone) ||
+        strcmp(comMsg.tips, userMsg->tips)) {
+        puts("验证失败\n");
+        strcpy(comMsg.tips, "#");
+
+        send(clientfd, &comMsg, sizeof(comMsg), 0);
+    } else {
+        puts("验证成功\n");
+
+        sprintf(registerInfoSql, "select * from user_login where id =%d;",
+                userMsg->id);
+        sqlite3_exec(db, registerInfoSql, sqliteCallback, NULL, NULL);
+
+        send(clientfd, &comMsg, sizeof(comMsg), 0);
+    }
+
+    memset(&comMsg, 0, sizeof(comMsg));
     return;
 }
 
 void do_login(MSG* userMsg, int clientfd) {
     char registerInfoSql[1024];
+    int number_error;
 
     recv(clientfd, userMsg, sizeof(*userMsg), 0);
 
@@ -178,9 +230,10 @@ void do_login(MSG* userMsg, int clientfd) {
 
     sprintf(registerInfoSql, "select * from user_login where id=%d;",
             userMsg->id);
-    sqlite3_exec(db, registerInfoSql, sqliteCallback, NULL, NULL);
+    number_error =
+        sqlite3_exec(db, registerInfoSql, sqliteCallback, NULL, NULL);
 
-    if (strcmp(userMsg->passwd, comMsg.passwd))
+    if (strcmp(userMsg->passwd, comMsg.passwd) || (!number_error))
         goto ERROR;
 
     sprintf(registerInfoSql, "select * from user_info where id=%d;",
@@ -212,10 +265,12 @@ void do_quit(MSG* userMsg, int clientfd) {
 }
 
 void do_login_success(MSG* userMsg, int clientfd) {
+    userNumber = userMsg->id;
     while (1) {
         if (recv(clientfd, userMsg, sizeof(*userMsg), 0) < 0) {
         }
 
+        printf("\n%d : [L]--->[%C]\n", userNumber, userMsg->tips[0]);
         switch (userMsg->tips[0]) {
             case 'A':
                 do_add(userMsg, clientfd);
@@ -248,24 +303,104 @@ void do_add(MSG* userMsg, int clientfd) {
     do_register(userMsg, clientfd);
 }
 
-/**
- *Name 		  : 	do_delete
- *Description :     根据用户的id删除用户记录
- *Input 	  : 	用户id(msg->id)
- *Output 	  :
- */
 void do_delete(MSG* userMsg, int clientfd) {
+    char registerInfoSql[1024];
+
+    printf("删除用户\n");
+
+    recv(clientfd, userMsg, sizeof(*userMsg), 0);
+
+    sprintf(registerInfoSql,
+            "select * from user_login where id order by id desc limit 0,1;");
+    sqlite3_exec(db, registerInfoSql, sqliteCallback, NULL, NULL);
+
+    if ((userMsg->id > comMsg.id) || (userMsg->id < 1000)) {
+        printf("删除失败\n");
+        strcpy(userMsg->tips, "@");
+        send(clientfd, userMsg, sizeof(*userMsg), 0);
+        return;
+    }
+
+    sprintf(registerInfoSql, "select * from user_info where id =%d;",
+            userMsg->id);
+    sqlite3_exec(db, registerInfoSql, sqliteCallback, NULL, NULL);
+
+    send(clientfd, &comMsg, sizeof(comMsg), 0);
+
+    recv(clientfd, userMsg, sizeof(*userMsg), 0);
+
+    printf("user id = %d\n", userMsg->id);
+
+    sprintf(registerInfoSql, "delete from user_info where id =%d;",
+            userMsg->id);
+    sqlite3_exec(db, registerInfoSql, NULL, NULL, NULL);
+
+    sprintf(registerInfoSql, "delete from user_login where id =%d;",
+            userMsg->id);
+    sqlite3_exec(db, registerInfoSql, NULL, NULL, NULL);
+
+    printf("删除结束");
+
+    backInfo(userMsg, clientfd);
+
     return;
 }
 
-/**
- *Name 		  : 	do_select
- *Description : 	根据用户id查询某个用户的信息
- *Input 	  : 	用户id
- *Output 	  :
- */
 void do_select(MSG* userMsg, int clientfd) {
-    puts("do_sele");
+    char registerInfoSql[1024];
+    char* errmsg;
+    int number_erro;
+    int allUser;
+    int allVoidNumber = 0;
+
+    sprintf(registerInfoSql,
+            "select * from user_login where id order by id desc limit 0,1;");
+    sqlite3_exec(db, registerInfoSql, sqliteCallback, NULL, NULL);
+    allUser = comMsg.id;
+
+    for (int i = 1000; i <= allUser; i++) {
+        sprintf(registerInfoSql, "select * from user_login where id = %d;", i);
+        number_erro =
+            sqlite3_exec(db, registerInfoSql, sqliteCallback, NULL, NULL);
+        if (!number_erro) {
+            allVoidNumber++;
+        }
+    }
+
+    int voidUser[allVoidNumber + 1];
+
+    for (int i = 1000, j = 0; (i <= allUser) && (j <= allVoidNumber); i++) {
+        sprintf(registerInfoSql, "select * from user_login where id = %d;", i);
+        number_erro =
+            sqlite3_exec(db, registerInfoSql, sqliteCallback, NULL, NULL);
+        if (!number_erro) {
+            voidUser[j++] = i;
+        }
+    }
+
+    voidUser[allVoidNumber] = comMsg.id - 1000 - allVoidNumber;
+
+    send(clientfd, &allVoidNumber, sizeof(allVoidNumber), 0);
+    send(clientfd, voidUser, sizeof(voidUser), 0);
+
+    recv(clientfd, userMsg, sizeof(*userMsg), 0);
+
+    sprintf(registerInfoSql, "select * from user_info where id = %d;",
+            userMsg->id);
+    number_erro =
+        sqlite3_exec(db, registerInfoSql, sqliteCallback, NULL, &errmsg);
+
+    if ((userMsg->id > comMsg.id) || (userMsg->id < 1000) || (!number_erro)) {
+        printf("查询错误\n");
+        strcpy(userMsg->tips, "@");
+        send(clientfd, userMsg, sizeof(*userMsg), 0);
+        return;
+    }
+
+    send(clientfd, &comMsg, sizeof(comMsg), 0);
+
+    backInfo(userMsg, clientfd);
+
     return;
 }
 
@@ -281,8 +416,52 @@ void do_updata(MSG* userMsg, int clientfd) {
 }
 
 void do_passwd(MSG* userMsg, int clientfd) {
+    char registerInfoSql[1024];
+
     recv(clientfd, userMsg, sizeof(*userMsg), 0);
-    printf("%d\n", userMsg->id);
-    getchar();
+    sprintf(registerInfoSql, "select * from user_login where id = %d;",
+            userMsg->id);
+    sqlite3_exec(db, registerInfoSql, sqliteCallback, NULL, NULL);
+
+    while (strcmp(comMsg.passwd, userMsg->passwd)) {
+        strcpy(comMsg.tips, "#");
+        send(clientfd, &comMsg, sizeof(comMsg), 0);
+
+        recv(clientfd, userMsg, sizeof(*userMsg), 0);
+
+        if (userMsg->tips[0] == '@') {
+            printf("修改失败");
+            return;
+        }
+
+        sprintf(registerInfoSql, "select * from user_login where id = %d;",
+                userMsg->id);
+        sqlite3_exec(db, registerInfoSql, sqliteCallback, NULL, NULL);
+    }
+    strcpy(comMsg.tips, "A");
+    send(clientfd, &comMsg, sizeof(comMsg), 0);
+
+    recv(clientfd, userMsg, sizeof(*userMsg), 0);
+
+    sprintf(registerInfoSql,
+            "update user_login set passwd = \"%s\" where id = %d;",
+            userMsg->passwd, userMsg->id);
+    sqlite3_exec(db, registerInfoSql, NULL, NULL, NULL);
+
+    printf("修改成功");
+
+    memset(&comMsg, 0, sizeof(comMsg));
+    return;
+}
+
+void backInfo(MSG* userMsg, int clientfd) {
+    char registerInfoSql[1024];
+
+    sprintf(registerInfoSql, "select * from user_info where id =%d;",
+            userNumber);
+    sqlite3_exec(db, registerInfoSql, sqliteCallback, NULL, NULL);
+
+    send(clientfd, &comMsg, sizeof(comMsg), 0);
+    memset(&comMsg, 0, sizeof(comMsg));
     return;
 }

@@ -5,7 +5,7 @@ void socket_init(char const* argv[]) {
 
     socketfd = socket(AF_INET, SOCK_STREAM, 0);
     if (socketfd < 0) {
-        perror("Socket:");
+        perror("Socket");
         exit(0);
     }
 
@@ -15,7 +15,7 @@ void socket_init(char const* argv[]) {
 
 #if 1
     if (inet_pton(AF_INET, argv[1], (void*)(&serveraddr.sin_addr.s_addr)) < 0) {
-        perror("Pton:");
+        perror("Pton");
         exit(0);
     }
 #else
@@ -24,7 +24,7 @@ void socket_init(char const* argv[]) {
 
     if (connect(socketfd, (struct sockaddr*)&serveraddr, sizeof(serveraddr)) <
         0) {
-        perror("Connect:");
+        perror("Connect");
         exit(0);
     }
 
@@ -81,7 +81,7 @@ void initUi(void) {
 
 void do_register(int socketfd, MSG* msg) {
     char q;
-
+    memset(msg, 0, sizeof(MSG));
     system("clear");
     printf("*****************************************************\n");
     printf("*                                                   *\n");
@@ -117,6 +117,10 @@ void do_register(int socketfd, MSG* msg) {
     scanf("%s", msg->addr);
     getchar();
 
+    printf("请输入效验码：");
+    scanf("%s", msg->tips);
+    getchar();
+
     send(socketfd, msg, sizeof(MSG), 0);
     recv(socketfd, msg, sizeof(MSG), 0);
 
@@ -135,7 +139,10 @@ void do_register(int socketfd, MSG* msg) {
     puts("");
     printf("[该ID号码将作为登陆账号使用]\nID号为：%d\n", msg->id);
     printf("密  码：******\n");
-    printf("\n请按下回车来返回上级页面：");
+    printf("效验码：%s\n", msg->tips);
+    printf("\n[请按下回车来返回上级页面]");
+
+    recv(socketfd, msg, sizeof(MSG), 0);
 
     getchar();
 
@@ -193,7 +200,7 @@ int do_login(int socketfd, MSG* msg) {
     recv(socketfd, msg, sizeof(MSG), 0);
 
     if (msg->tips[0] == '#') {
-        printf("登陆失败！将返会主页！\n输入回车确认！");
+        printf("登陆失败！将返会主页！\n\n[输入回车确认]");
         getchar();
         system("clear");
         return 0;
@@ -207,6 +214,7 @@ int do_login(int socketfd, MSG* msg) {
         return 1;
     }
 };
+
 void do_forget_password(int socketfd, MSG* msg) {
     system("clear");
     printf("*****************************************************\n");
@@ -215,8 +223,38 @@ void do_forget_password(int socketfd, MSG* msg) {
     printf("*                                                   *\n");
     printf("*****************************************************\n");
     printf("请输入ID:");
-    scanf("%d", msg->id);
+    scanf("%d", &(msg->id));
+    getchar();
+    printf("\n请输入该账号的姓名：");
+    scanf("%s", msg->name);
+    getchar();
+    printf("请输入该账号的手机号：");
+    scanf("%s", msg->phone);
+    getchar();
+    printf("请输入该账号的效验码：");
+    scanf("%s", msg->tips);
+    getchar();
+
     send(socketfd, msg, sizeof(MSG), 0);
+    recv(socketfd, msg, sizeof(MSG), 0);
+
+    system("clear");
+    printf("*****************************************************\n");
+    printf("*                                                   *\n");
+    printf("*                    找回密码                       *\n");
+    printf("*                                                   *\n");
+    printf("*****************************************************\n");
+
+    if (msg->tips[0] == '#') {
+        printf("\n[抱歉，您输入的信息有误，按下回车继续]");
+        getchar();
+        return;
+    }
+
+    printf("验证成功！您的密码为  %s\n", msg->passwd);
+    printf("\n[按下回车返回主页]");
+    getchar();
+    return;
 };
 
 void do_root_user(int socketfd, MSG* msg) {
@@ -229,12 +267,6 @@ void do_root_user(int socketfd, MSG* msg) {
         printf("*                                                   *\n");
         printf("*****************************************************\n");
         printf("你好！%s\n", msg->name);
-        /*
-        printf("年  龄：%d\n", msg->age);
-        printf("性  别：%s\n", msg->sex);
-        printf("手机号：%s\n", msg->phone);
-        printf("地  址：%s\n", msg->addr);
-        */
         printf("\n****************************************\n");
         printf("* 1: 添加用户  2: 删除用户  3:修改信息 *\n");
         printf("* 4: 查询信息  5: 退出                 *\n");
@@ -323,28 +355,117 @@ void do_general_user(int socketfd, MSG* msg) {
 }
 
 void do_add_user(int socketfd, MSG* msg) {
-    puts("按下回车跳转到注册页");
+    puts("\n[按下回车跳转到注册页]");
     getchar();
     do_register(socketfd, msg);
     return;
 }
+
 void do_delete_user(int socketfd, MSG* msg) {
-    printf("删除\n");
+    system("clear");
+    printf("*****************************************************\n");
+    printf("*                                                   *\n");
+    printf("*                    用户删除                       *\n");
+    printf("*                                                   *\n");
+    printf("*****************************************************\n");
+    printf("你好！%s\n\n请输入您要删除用户的ID：", msg->name);
+    scanf("%d", &(msg->id));
     getchar();
+    send(socketfd, msg, sizeof(MSG), 0);
+    recv(socketfd, msg, sizeof(MSG), 0);
+
+    if (msg->tips[0] == '@') {
+        printf("\n\n[您输入的ID有误,按下回车继续]");
+        getchar();
+        system("clear");
+        return;
+    }
+
+    printf("\n\n账号ID：%d\n", msg->id);
+    printf("用户名：%s\n\n", msg->name);
+    printf("如果您确定要删除该用户请在此输入该用户ID：");
+    scanf("%d", &(msg->id));
+
+    send(socketfd, msg, sizeof(MSG), 0);
+
+    printf("\n\n[删除成功按下回车返回]");
+    getchar();
+
+    recv(socketfd, msg, sizeof(MSG), 0);
+
+    system("clear");
+
+    return;
 }
+
 void do_update_root_user(int socketfd, MSG* msg) {
     printf("root修改\n");
     getchar();
 }
+
 void do_search_root_user(int socketfd, MSG* msg) {
-    printf("root查询\n");
+    int number;
+    recv(socketfd, &number, sizeof(number), 0);
+
+    int voidUser[number + 1];
+    recv(socketfd, voidUser, sizeof(voidUser), 0);
+
+    system("clear");
+    printf("*****************************************************\n");
+    printf("*                                                   *\n");
+    printf("*                    信息查询                       *\n");
+    printf("*                                                   *\n");
+    printf("*****************************************************\n");
+    printf("你好！%s\n\n", msg->name);
+    printf("*****************************************************\n");
+    printf("当前系统中共有 [%d] 位用户第一位用户编号为 [1000]  \n",
+           (voidUser[number]));
+    printf("以下为空ID号：");
+    for (int i = 0; i < number; i++) {
+        printf("%d\t", voidUser[i]);
+    }
+    printf("\n*****************************************************\n");
+    printf("\n请输入要查询的用户ID:");
+    scanf("%d", &msg->id);
     getchar();
+
+    send(socketfd, msg, sizeof(MSG), 0);
+    recv(socketfd, msg, sizeof(MSG), 0);
+
+    if (msg->tips[0] == '@') {
+        printf("\n\n[您输入的ID有误,按下回车继续]");
+        getchar();
+        system("clear");
+        return;
+    }
+
+    system("clear");
+    printf("*****************************************************\n");
+    printf("*                                                   *\n");
+    printf("*                    信息查询                       *\n");
+    printf("*                                                   *\n");
+    printf("*****************************************************\n");
+    printf("用  户：%s\n", msg->name);
+
+    printf("账号ID: %d\n", msg->id);
+    printf("年  龄：%d\n", msg->age);
+    printf("性  别：%s\n", msg->sex);
+    printf("手机号：%s\n", msg->phone);
+    printf("地  址：%s\n", msg->addr);
+
+    printf("\n[请输入回车返回]");
+
+    getchar();
+
+    recv(socketfd, msg, sizeof(MSG), 0);
+
+    system("clear");
+    return;
 }
 
 void do_update_general_user(int socketfd, MSG* msg) {
     int number = 0;
-    send(socketfd, msg, sizeof(MSG), 0);
-    recv(socketfd, msg, sizeof(MSG), 0);
+    // recv(socketfd, msg, sizeof(MSG), 0);
     char oldPasswd[20];
 
     system("clear");
@@ -355,15 +476,25 @@ void do_update_general_user(int socketfd, MSG* msg) {
     printf("*****************************************************\n");
     printf("你好！%s\n\n", msg->name);
     printf("请输入原始密码：");
-    scanf("%s", oldPasswd);
+    scanf("%s", msg->passwd);
     getchar();
-    while (strcmp(oldPasswd, msg->passwd)) {
+
+    send(socketfd, msg, sizeof(MSG), 0);
+    recv(socketfd, msg, sizeof(MSG), 0);
+
+    while (msg->tips[0] == '#') {
         printf("\n错误！请重新输入：");
-        scanf("%s", oldPasswd);
+        scanf("%s", msg->passwd);
         getchar();
+
+        send(socketfd, msg, sizeof(MSG), 0);
+        recv(socketfd, msg, sizeof(MSG), 0);
+
         number++;
         if (4 == number) {
             printf("\n您已连续输错5次!请重新登录！按下回车继续\n");
+            strcpy(msg->tips, "@");
+            send(socketfd, msg, sizeof(MSG), 0);
             getchar();
             return;
         }
@@ -371,7 +502,10 @@ void do_update_general_user(int socketfd, MSG* msg) {
     printf("请输入新密码：");
     scanf("%s", msg->passwd);
     getchar();
-    printf("\n修改成功！按下空格返回上一页\n");
+
+    send(socketfd, msg, sizeof(MSG), 0);
+
+    printf("\n[修改成功！按下空格返回上一页]");
     getchar();
 }
 
@@ -397,7 +531,7 @@ void do_search_general_user(int socketfd, MSG* msg) {
         printf("地  址：%s\n", msg->addr);
     }
 
-    printf("\n请输入回车返回！");
+    printf("\n[请输入回车返回]");
     getchar();
     return;
 }
