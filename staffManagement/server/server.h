@@ -15,6 +15,7 @@
 #include <sqlite3.h>
 #include <time.h>
 #include <pthread.h>
+#include <time.h>
 
 #define DATABASE "staff.db"
 #define N 1024
@@ -39,6 +40,7 @@ socklen_t client_len;
 int listenfd;
 MSG comMsg;
 int userNumber;
+time_t t;
 
 int sqliteCallback(void* para, int f_number, char** f_value, char** f_name);
 void socket_init(const char* argv[]);

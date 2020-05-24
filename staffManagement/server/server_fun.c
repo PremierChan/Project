@@ -271,6 +271,8 @@ void do_login_success(MSG* userMsg, int clientfd) {
         }
 
         printf("\n%d : [L]--->[%C]\n", userNumber, userMsg->tips[0]);
+        time(&t);
+        printf("%s\n", ctime(&t));
         switch (userMsg->tips[0]) {
             case 'A':
                 do_add(userMsg, clientfd);
@@ -280,6 +282,7 @@ void do_login_success(MSG* userMsg, int clientfd) {
                 break;
             case 'U':
                 do_updata(userMsg, clientfd);
+                return;
                 break;
             case 'S':
                 do_select(userMsg, clientfd);
@@ -404,14 +407,65 @@ void do_select(MSG* userMsg, int clientfd) {
     return;
 }
 
-/**
- *Name 		  : 	do_updata
- *Description : 	管理员根据用户id修改用户信息
- *Input 	  : 	用户id
- *Output 	  :
- */
 void do_updata(MSG* userMsg, int clientfd) {
-    puts("do_up");
+    char registerInfoSql[1024];
+
+    recv(clientfd, userMsg, sizeof(*userMsg), 0);
+
+    if ('#' == userMsg->tips[0]) {
+        printf("密码修改\n");
+        do_passwd(userMsg, clientfd);
+    } else if ('@' == userMsg->tips[0]) {
+        printf("信息修改\n");
+
+        sprintf(registerInfoSql, "select * from user_login where id = %d;",
+                userMsg->id);
+        sqlite3_exec(db, registerInfoSql, sqliteCallback, NULL, NULL);
+
+        send(clientfd, &comMsg, sizeof(comMsg), 0);
+
+        strcpy(userMsg->name, "");
+        strcpy(userMsg->phone, "");
+        strcpy(userMsg->addr, "");
+        strcpy(userMsg->sex, "");
+
+        recv(clientfd, userMsg, sizeof(*userMsg), 0);
+
+        if ((!strlen(userMsg->name)) && (!strlen(userMsg->phone)) &&
+            (!strlen(userMsg->sex)) && (!strlen(userMsg->addr))) {
+            printf("\n修改失败，客户端退出\n");
+            return;
+        }
+
+        sprintf(registerInfoSql,  //登录信息修改
+                "update user_login set tips = \"%s\" where id = %d;",
+                userMsg->tips, userMsg->id);
+        sqlite3_exec(db, registerInfoSql, NULL, NULL, NULL);
+
+        sprintf(registerInfoSql, "delete from user_info where id =%d;",
+                userMsg->id);
+        sqlite3_exec(db, registerInfoSql, NULL, NULL, NULL);
+
+        sprintf(registerInfoSql,  //个人信息修改
+                "insert into user_info values "
+                "(%d,\"%s\",\"%s\",%d,\"%s\",\"%s\",%d,\"%s\");",
+                userMsg->id, userMsg->name, userMsg->sex, userMsg->age,
+                userMsg->phone, userMsg->addr, userMsg->type, userMsg->tips);
+        sqlite3_exec(db, registerInfoSql, NULL, NULL, NULL);
+
+        sprintf(registerInfoSql, "select * from user_info where id = %d;",
+                userMsg->id);
+        sqlite3_exec(db, registerInfoSql, sqliteCallback, NULL, NULL);
+
+        send(clientfd, &comMsg, sizeof(comMsg), 0);
+
+        printf("修改完成\n");
+
+        backInfo(userMsg, clientfd);
+
+        return;
+    }
+
     return;
 }
 

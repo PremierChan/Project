@@ -26,6 +26,7 @@ int socketfd;
 struct sockaddr_in serveraddr;
 MSG msg;
 int n;
+int flagNumber;
 
 void socket_init(char const* argv[]);
 void initUi(void);
